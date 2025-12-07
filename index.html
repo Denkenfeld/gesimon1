@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ＳＩＭＯＮ ∴ ＲＥＢＯＲＮ</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-magenta: #ff00ff;
+            --neon-green: #0aff00;
+            --neon-yellow: #ffaa00;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Orbitron', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            mix-blend-mode: screen;
+        }
+
+        .glitch-title {
+            font-size: 8vw;
+            font-weight: 900;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            position: relative;
+            text-shadow: 0 0 20px var(--neon-blue);
+            animation: breathe 4s infinite ease-in-out;
+        }
+
+        .glitch-title::before, .glitch-title::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+        }
+
+        .glitch-title::before {
+            left: 2px;
+            text-shadow: -2px 0 var(--neon-magenta);
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim 5s infinite linear alternate-reverse;
+        }
+
+        .glitch-title::after {
+            left: -2px;
+            text-shadow: -2px 0 var(--neon-blue);
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim2 5s infinite linear alternate-reverse;
+        }
+
+        #start-btn, #retry-btn {
+            margin-top: 50px;
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            font-family: 'Orbitron', sans-serif;
+            background: transparent;
+            color: #fff;
+            border: 2px solid #fff;
+            cursor: pointer;
+            pointer-events: auto; /* Enable clicks */
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(5px);
+        }
+
+        #start-btn:hover, #retry-btn:hover {
+            background: #fff;
+            color: #000;
+            box-shadow: 0 0 40px #fff, 0 0 80px var(--neon-magenta);
+        }
+
+        #level-display {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            font-size: 3rem;
+            color: rgba(255, 255, 255, 0.8);
+            text-shadow: 0 0 20px var(--neon-blue);
+            display: none;
+        }
+
+        #status-msg {
+            font-size: 2rem;
+            margin-top: 20px;
+            color: var(--neon-magenta);
+            text-shadow: 0 0 10px currentColor;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        /* Animations */
+        @keyframes glitch-anim {
+            0% { clip: rect(12px, 9999px, 88px, 0); transform: skew(0.5deg); }
+            5% { clip: rect(55px, 9999px, 12px, 0); transform: skew(0.1deg); }
+            10% { clip: rect(33px, 9999px, 9px, 0); transform: skew(0.05deg); }
+            100% { clip: rect(10px, 9999px, 90px, 0); transform: skew(0); }
+        }
+        @keyframes glitch-anim2 {
+            0% { clip: rect(80px, 9999px, 10px, 0); transform: skew(0.6deg); }
+            5% { clip: rect(20px, 9999px, 80px, 0); transform: skew(0.2deg); }
+            100% { clip: rect(50px, 9999px, 20px, 0); transform: skew(0); }
+        }
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.02); opacity: 1; }
+        }
+
+        #scanline {
+            position: fixed;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px;
+            z-index: 10;
+            pointer-events: none;
+            opacity: 0.15;
+        }
+        
+        #vignette {
+            position: fixed;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(0,0,0,0) 50%, rgba(0,0,0,0.8) 100%);
+            z-index: 9;
+            pointer-events: none;
+        }
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.168.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.168.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+    <div id="scanline"></div>
+    <div id="vignette"></div>
+
+    <div id="ui-layer">
+        <div id="start-screen">
+            <div class="glitch-title" data-text="SIMON ∴ REBORN">SIMON ∴ REBORN</div>
+            <button id="start-btn">INITIALIZE NEURAL LINK</button>
+        </div>
+        <div id="game-over-screen" style="display: none;">
+            <div class="glitch-title" data-text="SYSTEM FAILURE" style="color:var(--neon-magenta)">SYSTEM FAILURE</div>
+            <div id="final-score" style="font-size: 1.5rem; margin: 20px; color: #fff;">LEVEL REACHED: 0</div>
+            <button id="retry-btn">REBOOT SYSTEM</button>
+        </div>
+        <div id="level-display">LVL 01</div>
+        <div id="status-msg"></div>
+    </div>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+
+    // ==========================================
+    // 1. CONFIG & STATE
+    // ==========================================
+    const CONFIG = {
+        colors: [0xff0044, 0x0088ff, 0x00ff44, 0xffcc00], // Red, Blue, Green, Yellow (Deep & Neon)
+        baseRadius: 25,
+        bloomStrength: 1.8,
+        bloomRadius: 0.6,
+        bloomThreshold: 0.1
+    };
+
+    const STATE = {
+        isPlaying: false,
+        level: 1,
+        sequence: [],
+        playerIndex: 0,
+        inputLocked: true,
+        score: 0,
+        time: 0,
+        difficultyMod: 0 // 0=Normal, 1=Reverse, 2=Chaos
+    };
+
+    // ==========================================
+    // 2. AUDIO SYSTEM (Web Audio API - Procedural)
+    // ==========================================
+    class AudioController {
+        constructor() {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.gain.value = 0.5;
+            this.masterGain.connect(this.ctx.destination);
+            
+            // Reverb effect (simulated delay)
+            this.delay = this.ctx.createDelay();
+            this.delay.delayTime.value = 0.3;
+            this.feedback = this.ctx.createGain();
+            this.feedback.gain.value = 0.4;
+            this.delay.connect(this.feedback);
+            this.feedback.connect(this.delay);
+            this.delay.connect(this.masterGain);
+        }
+
+        resume() { if (this.ctx.state === 'suspended') this.ctx.resume(); }
+
+        playTone(index, duration = 0.4) {
+            const osc = this.ctx.createOscillator();
+            const osc2 = this.ctx.createOscillator(); // Sub-oscillator for bass
+            const gain = this.ctx.createGain();
+            const filter = this.ctx.createBiquadFilter();
+
+            // Pentatonic-ish frequencies
+            const freqs = [110.00, 146.83, 164.81, 220.00]; // A2, D3, E3, A3
+            const pitch = freqs[index] * (1 + (STATE.level * 0.02)); // Pitch rises slightly with level
+
+            osc.type = 'sawtooth';
+            osc.frequency.value = pitch;
+            
+            osc2.type = 'sine';
+            osc2.frequency.value = pitch / 2; // Sub-bass
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(800, this.ctx.currentTime);
+            filter.Q.value = 8;
+            filter.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + duration);
+
+            gain.gain.setValueAtTime(0, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.5, this.ctx.currentTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+
+            osc.connect(filter);
+            osc2.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.masterGain);
+            gain.connect(this.delay); // Send to reverb
+
+            osc.start();
+            osc2.start();
+            osc.stop(this.ctx.currentTime + duration);
+            osc2.stop(this.ctx.currentTime + duration);
+        }
+
+        playFailure() {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(80, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(10, this.ctx.currentTime + 1.0);
+            
+            gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 1.0);
+
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            osc.start();
+            osc.stop(this.ctx.currentTime + 1.0);
+        }
+        
+        playSuccess() {
+             // Epic chord
+            [220, 277.18, 329.63, 440].forEach((f, i) => {
+                setTimeout(() => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = f * 2;
+                    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 2.0);
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    gain.connect(this.delay);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 2.0);
+                }, i * 50);
+            });
+        }
+    }
+
+    // ==========================================
+    // 3. SHADERS (GLSL)
+    // ==========================================
+    
+    // -- Orb Shader: Pulsing, Fresnel-based, "Black Hole" look --
+    const orbVertexShader = `
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        varying vec3 vViewPosition;
+        uniform float uTime;
+        
+        // Simplex Noise (simplified)
+        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+        float snoise(vec3 v) { 
+            const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
+            const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+            vec3 i  = floor(v + dot(v, C.yyy) );
+            vec3 x0 = v - i + dot(i, C.xxx) ;
+            vec3 g = step(x0.yzx, x0.xyz);
+            vec3 l = 1.0 - g;
+            vec3 i1 = min( g.xyz, l.zxy );
+            vec3 i2 = max( g.xyz, l.zxy );
+            vec3 x1 = x0 - i1 + C.xxx;
+            vec3 x2 = x0 - i2 + C.yyy;
+            vec3 x3 = x0 - D.yyy;
+            i = mod289(i); 
+            vec4 p = permute( permute( permute( 
+                     i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+                   + i.y + vec4(0.0, i1.y, i2.y, 1.0 )) 
+                   + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+            float n_ = 0.142857142857;
+            vec3  ns = n_ * D.wyz - D.xzx;
+            vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+            vec4 x_ = floor(j * ns.z);
+            vec4 y_ = floor(j - 7.0 * x_ );
+            vec4 x = x_ *ns.x + ns.yyyy;
+            vec4 y = y_ *ns.x + ns.yyyy;
+            vec4 h = 1.0 - abs(x) - abs(y);
+            vec4 b0 = vec4( x.xy, y.xy );
+            vec4 b1 = vec4( x.zw, y.zw );
+            vec4 s0 = floor(b0)*2.0 + 1.0;
+            vec4 s1 = floor(b1)*2.0 + 1.0;
+            vec4 sh = -step(h, vec4(0.0));
+            vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+            vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+            vec3 p0 = vec3(a0.xy,h.x);
+            vec3 p1 = vec3(a0.zw,h.y);
+            vec3 p2 = vec3(a1.xy,h.z);
+            vec3 p3 = vec3(a1.zw,h.w);
+            vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+            p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+            vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+            m = m * m;
+            return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
+        }
+
+        void main() {
+            vNormal = normalize(normalMatrix * normal);
+            // Dynamic vertex displacement
+            float noise = snoise(position * 0.3 + uTime * 0.5);
+            vec3 newPos = position + normal * noise * 0.5;
+            
+            vec4 mvPosition = modelViewMatrix * vec4(newPos, 1.0);
+            vViewPosition = -mvPosition.xyz;
+            vPosition = newPos;
+            gl_Position = projectionMatrix * mvPosition;
+        }
+    `;
+
+    const orbFragmentShader = `
+        uniform vec3 uColor;
+        uniform float uIntensity;
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+
+        void main() {
+            vec3 normal = normalize(vNormal);
+            vec3 viewDir = normalize(vViewPosition);
+            
+            // Fresnel Effect
+            float fresnel = dot(viewDir, normal);
+            fresnel = clamp(1.0 - fresnel, 0.0, 1.0);
+            fresnel = pow(fresnel, 2.0); // Sharpen rim
+
+            // Core glow
+            float core = 0.2;
+
+            vec3 finalColor = uColor * (fresnel * 3.0 + core) * uIntensity;
+            
+            // Add "noise" texture feel
+            float scanline = sin(gl_FragCoord.y * 0.5) * 0.1;
+
+            gl_FragColor = vec4(finalColor + scanline, 0.6 + fresnel * 0.4);
+        }
+    `;
+
+    // -- Background Starfield/Tunnel Shader --
+    const starVertexShader = `
+        attribute float size;
+        attribute vec3 customColor;
+        varying vec3 vColor;
+        uniform float uTime;
+        uniform float uSpeed;
+
+        void main() {
+            vColor = customColor;
+            vec3 pos = position;
+            
+            // Endless tunnel effect
+            pos.z = mod(pos.z + uTime * uSpeed, 200.0) - 100.0;
+            
+            // Spiral twist
+            float angle = pos.z * 0.02;
+            float s = sin(angle);
+            float c = cos(angle);
+            mat2 rotation = mat2(c, -s, s, c);
+            pos.xy = rotation * pos.xy;
+
+            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+            gl_PointSize = size * (300.0 / -mvPosition.z);
+            gl_Position = projectionMatrix * mvPosition;
+        }
+    `;
+
+    const starFragmentShader = `
+        uniform sampler2D pointTexture;
+        varying vec3 vColor;
+        void main() {
+            // Circular particle
+            vec2 cxy = 2.0 * gl_PointCoord - 1.0;
+            float r = dot(cxy, cxy);
+            if (r > 1.0) discard;
+            float glow = 1.0 - r;
+
+            gl_FragColor = vec4(vColor * 2.0, glow); // Overdrive color for bloom
+        }
+    `;
+
+    // -- Chromatic Aberration Shader Pass --
+    const aberrationShader = {
+        uniforms: {
+            "tDiffuse": { value: null },
+            "amount": { value: 0.0 }
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform sampler2D tDiffuse;
+            uniform float amount;
+            varying vec2 vUv;
+            
+            // Random grain
+            float rand(vec2 co){
+                return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+            }
+
+            void main() {
+                vec2 rOffset = vec2(amount * 0.01, 0.0);
+                vec2 gOffset = vec2(0.0, 0.0);
+                vec2 bOffset = vec2(-amount * 0.01, 0.0);
+                
+                vec4 cr = texture2D(tDiffuse, vUv + rOffset);
+                vec4 cga = texture2D(tDiffuse, vUv + gOffset);
+                vec4 cb = texture2D(tDiffuse, vUv + bOffset);
+                
+                float noise = (rand(vUv * 100.0) - 0.5) * amount * 2.0;
+
+                gl_FragColor = vec4(cr.r, cga.g, cb.b, 1.0) + noise;
+            }
+        `
+    };
+
+    // ==========================================
+    // 4. SCENE SETUP
+    // ==========================================
+    const audioCtrl = new AudioController();
+    
+    // Canvas & Renderer
+    const container = document.getElementById('canvas-container');
+    const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap at 2x for performance
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ReinhardToneMapping;
+    container.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x000000, 0.015);
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = 60;
+
+    // --- Post Processing ---
+    const composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+    bloomPass.threshold = CONFIG.bloomThreshold;
+    bloomPass.strength = CONFIG.bloomStrength;
+    bloomPass.radius = CONFIG.bloomRadius;
+    composer.addPass(bloomPass);
+
+    const effectAberration = new ShaderPass(aberrationShader);
+    composer.addPass(effectAberration);
+
+    // ==========================================
+    // 5. OBJECTS & ENTITIES
+    // ==========================================
+
+    // --- The Tunnel/Starfield ---
+    const starGeometry = new THREE.BufferGeometry();
+    const starCount = 8000;
+    const starPositions = new Float32Array(starCount * 3);
+    const starColors = new Float32Array(starCount * 3);
+    const starSizes = new Float32Array(starCount);
+
+    const colorPalette = [
+        new THREE.Color(0x00f3ff), // Cyan
+        new THREE.Color(0xff00ff), // Magenta
+        new THREE.Color(0xffffff)  // White
+    ];
+
+    for(let i=0; i<starCount; i++) {
+        // Create a cylinder/tunnel distribution
+        const r = 30 + Math.random() * 50;
+        const theta = Math.random() * Math.PI * 2;
+        starPositions[i*3] = r * Math.cos(theta);
+        starPositions[i*3+1] = r * Math.sin(theta);
+        starPositions[i*3+2] = (Math.random() * 200) - 100;
+
+        const col = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+        starColors[i*3] = col.r;
+        starColors[i*3+1] = col.g;
+        starColors[i*3+2] = col.b;
+
+        starSizes[i] = Math.random() * 1.5;
+    }
+
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    starGeometry.setAttribute('customColor', new THREE.BufferAttribute(starColors, 3));
+    starGeometry.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
+
+    const starMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            uTime: { value: 0 },
+            uSpeed: { value: 10.0 }
+        },
+        vertexShader: starVertexShader,
+        fragmentShader: starFragmentShader,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
+
+    const starField = new THREE.Points(starGeometry, starMaterial);
+    scene.add(starField);
+
+    // --- The Simon Orbs ---
+    const orbs = [];
+    const orbGroup = new THREE.Group();
+    scene.add(orbGroup);
+
+    const orbGeo = new THREE.IcosahedronGeometry(6, 15); // High detail for smooth noise
+    
+    // Positions: Top-Left, Top-Right, Bottom-Left, Bottom-Right
+    const positions = [
+        { x: -12, y: 12 }, { x: 12, y: 12 },
+        { x: -12, y: -12 }, { x: 12, y: -12 }
+    ];
+
+    positions.forEach((pos, i) => {
+        const mat = new THREE.ShaderMaterial({
+            uniforms: {
+                uColor: { value: new THREE.Color(CONFIG.colors[i]) },
+                uTime: { value: 0 },
+                uIntensity: { value: 1.0 }
+            },
+            vertexShader: orbVertexShader,
+            fragmentShader: orbFragmentShader,
+            transparent: true,
+            side: THREE.DoubleSide
+        });
+
+        const mesh = new THREE.Mesh(orbGeo, mat);
+        mesh.position.set(pos.x, pos.y, 0);
+        mesh.userData = { id: i, originalPos: { ...pos }, baseScale: 1.0 };
+        
+        // Add a wireframe cage slightly larger for tech look
+        const wireGeo = new THREE.IcosahedronGeometry(6.2, 1);
+        const wireMat = new THREE.MeshBasicMaterial({ color: CONFIG.colors[i], wireframe: true, transparent: true, opacity: 0.1 });
+        const wireMesh = new THREE.Mesh(wireGeo, wireMat);
+        mesh.add(wireMesh);
+
+        orbGroup.add(mesh);
+        orbs.push(mesh);
+    });
+
+    // --- Particle Explosion System ---
+    const particles = [];
+    const particleGeo = new THREE.BufferGeometry();
+    // Pre-allocate buffer for better performance
+    const pMax = 5000; 
+    const pPos = new Float32Array(pMax * 3);
+    const pCol = new Float32Array(pMax * 3);
+    const pSize = new Float32Array(pMax);
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+    particleGeo.setAttribute('customColor', new THREE.BufferAttribute(pCol, 3));
+    particleGeo.setAttribute('size', new THREE.BufferAttribute(pSize, 1));
+    
+    const particleMat = new THREE.ShaderMaterial({
+        uniforms: { uTime: { value: 0 } },
+        vertexShader: `
+            attribute float size;
+            attribute vec3 customColor;
+            varying vec3 vColor;
+            void main() {
+                vColor = customColor;
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                gl_PointSize = size * (200.0 / -mvPosition.z);
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `,
+        fragmentShader: `
+            varying vec3 vColor;
+            void main() {
+                vec2 coord = gl_PointCoord - vec2(0.5);
+                float dist = length(coord);
+                if(dist > 0.5) discard;
+                gl_FragColor = vec4(vColor * 3.0, 1.0 - dist*2.0); // Boost color
+            }
+        `,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+    
+    const particleSystem = new THREE.Points(particleGeo, particleMat);
+    particleSystem.frustumCulled = false;
+    scene.add(particleSystem);
+
+    // Particle Logic
+    class Particle {
+        constructor() {
+            this.active = false;
+            this.pos = new THREE.Vector3();
+            this.vel = new THREE.Vector3();
+            this.color = new THREE.Color();
+            this.life = 0;
+            this.decay = 0;
+            this.size = 1;
+            this.idx = 0;
+        }
+        spawn(x, y, z, color, speed, sizeMultiplier) {
+            this.pos.set(x, y, z);
+            // Sphere random velocity
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos((Math.random() * 2) - 1);
+            const r = Math.random() * speed;
+            this.vel.set(
+                r * Math.sin(phi) * Math.cos(theta),
+                r * Math.sin(phi) * Math.sin(theta),
+                r * Math.cos(phi)
+            );
+            this.color.setHex(color);
+            this.life = 1.0;
+            this.decay = 0.01 + Math.random() * 0.02;
+            this.size = (Math.random() * 2 + 0.5) * sizeMultiplier;
+            this.active = true;
+        }
+    }
+    
+    // Fill pool
+    for(let i=0; i<pMax; i++) {
+        const p = new Particle();
+        p.idx = i;
+        particles.push(p);
+    }
+
+    function spawnExplosion(pos, colorHex, count = 100, speed = 1.0, size = 1.0) {
+        let spawned = 0;
+        for(let p of particles) {
+            if(!p.active) {
+                p.spawn(pos.x, pos.y, pos.z, colorHex, speed, size);
+                spawned++;
+                if(spawned >= count) break;
+            }
+        }
+    }
+
+    // ==========================================
+    // 6. GAME LOGIC
+    // ==========================================
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let trauma = 0; // For camera shake
+
+    function setStatus(text) {
+        const el = document.getElementById('status-msg');
+        el.innerText = text;
+        el.style.opacity = 1;
+        setTimeout(() => { el.style.opacity = 0; }, 2000);
+    }
+
+    function startGame() {
+        audioCtrl.resume();
+        STATE.isPlaying = true;
+        STATE.level = 1;
+        STATE.sequence = [];
+        STATE.score = 0;
+        STATE.inputLocked = true;
+        STATE.difficultyMod = 0;
+
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('game-over-screen').style.display = 'none';
+        document.getElementById('level-display').style.display = 'block';
+        
+        // Reset Orbs
+        orbGroup.rotation.set(0,0,0);
+        camera.position.z = 60;
+
+        nextLevel();
+    }
+
+    function nextLevel() {
+        STATE.level++;
+        document.getElementById('level-display').innerText = "LVL " + (STATE.level < 10 ? "0"+STATE.level : STATE.level);
+        
+        // Difficulty Logic
+        if(STATE.level >= 8) STATE.difficultyMod = 1; // Reverse/Warp
+        if(STATE.level >= 16) STATE.difficultyMod = 2; // Chaos
+
+        // Add to sequence
+        STATE.sequence.push(Math.floor(Math.random() * 4));
+        STATE.playerIndex = 0;
+        STATE.inputLocked = true;
+
+        // Visual cue for level start
+        setTimeout(() => {
+            playSequence();
+        }, 1000);
+    }
+
+    function playSequence() {
+        let delay = 600;
+        if(STATE.level > 5) delay = 400;
+        if(STATE.level > 12) delay = 250;
+
+        STATE.sequence.forEach((colorIdx, i) => {
+            setTimeout(() => {
+                activateOrb(colorIdx);
+            }, (i + 1) * delay);
+        });
+
+        setTimeout(() => {
+            STATE.inputLocked = false;
+            setStatus("YOUR TURN");
+        }, (STATE.sequence.length + 1) * delay);
+    }
+
+    function activateOrb(index, userTriggered = false) {
+        const orb = orbs[index];
+        const color = CONFIG.colors[index];
+
+        // Visuals
+        orb.material.uniforms.uIntensity.value = 5.0; // Flash
+        orb.scale.setScalar(1.2);
+        
+        // Audio
+        audioCtrl.playTone(index);
+
+        // Particles
+        spawnExplosion(orb.getWorldPosition(new THREE.Vector3()), color, 50, 0.8, 1.0);
+
+        // Shake
+        if(userTriggered) trauma += 0.3;
+
+        // Reset visual after brief time
+        setTimeout(() => {
+            orb.material.uniforms.uIntensity.value = 1.0;
+            orb.scale.setScalar(1.0);
+        }, 200);
+    }
+
+    function handleInput(index) {
+        if(!STATE.isPlaying || STATE.inputLocked) return;
+
+        activateOrb(index, true);
+
+        if (index === STATE.sequence[STATE.playerIndex]) {
+            STATE.playerIndex++;
+            if (STATE.playerIndex >= STATE.sequence.length) {
+                STATE.inputLocked = true;
+                STATE.score += STATE.level * 100;
+                
+                // SUCCESS FIREWORKS
+                audioCtrl.playSuccess();
+                setStatus("SEQUENCE COMPLETE");
+                
+                // Big fireworks from center
+                setTimeout(() => {
+                     spawnExplosion(new THREE.Vector3(0,0,-20), 0xffffff, 300, 2.0, 2.0);
+                     trauma += 0.5;
+                }, 200);
+
+                setTimeout(nextLevel, 1500);
+            }
+        } else {
+            gameOver();
+        }
+    }
+
+    function gameOver() {
+        STATE.isPlaying = false;
+        STATE.inputLocked = true;
+        audioCtrl.playFailure();
+        
+        // Visual crash
+        effectAberration.uniforms['amount'].value = 0.05;
+        bloomPass.strength = 5.0;
+        trauma = 1.0;
+
+        setTimeout(() => {
+            document.getElementById('game-over-screen').style.display = 'block';
+            document.getElementById('level-display').style.display = 'none';
+            document.getElementById('final-score').innerText = "LEVEL REACHED: " + STATE.level;
+            
+            // Reset FX slightly
+            bloomPass.strength = CONFIG.bloomStrength;
+            effectAberration.uniforms['amount'].value = 0.0;
+        }, 1000);
+    }
+
+    // ==========================================
+    // 7. INPUT HANDLING
+    // ==========================================
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        composer.setSize(window.innerWidth, window.innerHeight);
+        bloomPass.setSize(new THREE.Vector2(window.innerWidth, window.innerHeight));
+    });
+
+    function onPointerDown(event) {
+        if(!STATE.isPlaying && !document.getElementById('start-screen').style.display === 'none') return;
+        
+        // Calculate mouse position in normalized device coordinates
+        let cx, cy;
+        if(event.changedTouches) {
+            cx = event.changedTouches[0].clientX;
+            cy = event.changedTouches[0].clientY;
+        } else {
+            cx = event.clientX;
+            cy = event.clientY;
+        }
+        
+        mouse.x = (cx / window.innerWidth) * 2 - 1;
+        mouse.y = -(cy / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(orbs);
+
+        if (intersects.length > 0) {
+            const id = intersects[0].object.userData.id;
+            handleInput(id);
+        }
+    }
+
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('touchstart', onPointerDown, {passive: false});
+
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('retry-btn').addEventListener('click', startGame);
+
+    // ==========================================
+    // 8. RENDER LOOP
+    // ==========================================
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const dt = clock.getDelta();
+        const time = clock.getElapsedTime();
+
+        // 1. Update Uniforms
+        starField.material.uniforms.uTime.value = time;
+        // Warp speed effect when transitioning or high levels
+        starField.material.uniforms.uSpeed.value = STATE.inputLocked ? 40.0 : 10.0;
+
+        orbs.forEach(orb => {
+            orb.material.uniforms.uTime.value = time;
+            // Idle rotation
+            orb.rotation.y += dt * 0.5;
+            orb.rotation.z += dt * 0.2;
+        });
+
+        // 2. Camera Logic (Wobble & Trauma)
+        trauma = Math.max(0, trauma - dt * 0.8);
+        const shake = trauma * trauma;
+        camera.position.x = (Math.random() - 0.5) * shake * 2;
+        camera.position.y = (Math.random() - 0.5) * shake * 2;
+        
+        // Gentle float
+        const camTime = time * 0.2;
+        camera.rotation.z = Math.sin(camTime) * 0.1;
+
+        // Difficulty rotations
+        if(STATE.difficultyMod >= 1 && !STATE.inputLocked) {
+           orbGroup.rotation.z = Math.sin(time * 0.5) * 0.2;
+        }
+        if(STATE.difficultyMod >= 2 && !STATE.inputLocked) {
+           orbGroup.rotation.z += dt * 0.5; // Constant spin
+        }
+
+        // 3. Glitch Effect logic
+        effectAberration.uniforms['amount'].value = shake * 0.1 + (Math.random() < 0.02 ? 0.02 : 0);
+
+        // 4. Update Particles
+        let activeCount = 0;
+        const positions = particleGeo.attributes.position.array;
+        const colors = particleGeo.attributes.customColor.array;
+        const sizes = particleGeo.attributes.size.array;
+
+        for(let i=0; i < pMax; i++) {
+            const p = particles[i];
+            if(p.active) {
+                // Move
+                p.pos.addScaledVector(p.vel, dt * 60 * 0.3);
+                // Drag
+                p.vel.multiplyScalar(0.96);
+                // Life
+                p.life -= p.decay;
+                
+                if(p.life <= 0) {
+                    p.active = false;
+                    sizes[i] = 0;
+                } else {
+                    positions[i*3] = p.pos.x;
+                    positions[i*3+1] = p.pos.y;
+                    positions[i*3+2] = p.pos.z;
+                    
+                    colors[i*3] = p.color.r;
+                    colors[i*3+1] = p.color.g;
+                    colors[i*3+2] = p.color.b;
+                    
+                    sizes[i] = p.size * p.life;
+                    activeCount++;
+                }
+            } else {
+                // Hide inactive
+                sizes[i] = 0;
+            }
+        }
+        
+        particleGeo.attributes.position.needsUpdate = true;
+        particleGeo.attributes.customColor.needsUpdate = true;
+        particleGeo.attributes.size.needsUpdate = true;
+
+        // 5. Hover Effect (Raycast every frame for cursor glow)
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(orbs);
+        if(intersects.length > 0 && !STATE.inputLocked) {
+             document.body.style.cursor = 'pointer';
+             intersects[0].object.scale.lerp(new THREE.Vector3(1.1, 1.1, 1.1), 0.2);
+        } else {
+             document.body.style.cursor = 'default';
+             orbs.forEach(o => {
+                 if(o.material.uniforms.uIntensity.value < 2.0) // Don't shrink if exploding
+                    o.scale.lerp(new THREE.Vector3(1,1,1), 0.1);
+             });
+        }
+
+        composer.render();
+    }
+
+    // Start Loop
+    animate();
+
+</script>
+</body>
+</html>
